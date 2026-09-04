@@ -291,4 +291,53 @@ class MovementTest extends TestCase
 
         $response->assertStatus(422);
     }
+
+    
+public function test_clients_have_isolated_accounts(): void
+{
+    $ana = Client::factory()->create([
+        'name' => 'Ana',
+    ]);
+
+    $ana->account()->create([
+        'currency' => 'EUR',
+    ]);
+
+    $marko = Client::factory()->create([
+        'name' => 'Marko',
+    ]);
+
+    $marko->account()->create([
+        'currency' => 'EUR',
+    ]);
+
+    $this->postJson(
+        "/api/clients/{$ana->id}/movements",
+        [
+            'type' => 'deposit',
+            'amount' => 1000,
+        ]
+    )->assertStatus(201);
+
+    $this->postJson(
+        "/api/clients/{$marko->id}/movements",
+        [
+            'type' => 'deposit',
+            'amount' => 500,
+        ]
+    )->assertStatus(201);
+
+    $this->getJson(
+        "/api/clients/{$ana->id}/balance"
+    )
+    ->assertStatus(200)
+    ->assertJsonPath('cash', '1000.00');
+
+    $this->getJson(
+        "/api/clients/{$marko->id}/balance"
+    )
+    ->assertStatus(200)
+    ->assertJsonPath('cash', '500.00');
+}
+
 }

@@ -25,6 +25,8 @@ class StoreMovementRequest extends FormRequest
 
             'amount' => [
                 'required_if:type,deposit,withdrawal',
+                'prohibited_if:type,buy',
+                'prohibited_if:type,sell',
                 'nullable',
                 'numeric',
                 'gt:0',
@@ -32,6 +34,8 @@ class StoreMovementRequest extends FormRequest
 
             'instrument' => [
                 'required_if:type,buy,sell',
+                'prohibited_if:type,deposit',
+                'prohibited_if:type,withdrawal',
                 'nullable',
                 'string',
                 'max:20',
@@ -39,6 +43,8 @@ class StoreMovementRequest extends FormRequest
 
             'quantity' => [
                 'required_if:type,buy,sell',
+                'prohibited_if:type,deposit',
+                'prohibited_if:type,withdrawal',
                 'nullable',
                 'integer',
                 'min:1',
@@ -46,6 +52,8 @@ class StoreMovementRequest extends FormRequest
 
             'price' => [
                 'required_if:type,buy,sell',
+                'prohibited_if:type,deposit',
+                'prohibited_if:type,withdrawal',
                 'nullable',
                 'numeric',
                 'gt:0',
