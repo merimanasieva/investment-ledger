@@ -13,6 +13,21 @@ return new class extends Migration
     {
         Schema::create('movements', function (Blueprint $table) {
             $table->id();
+
+            $table->foreignId('account_id')
+            ->constrained()
+            ->cascadeOnDelete();
+
+            $table->string('type');
+
+            $table->decimal('amount', 15, 2);
+
+            $table->string('instrument')->nullable();
+
+            $table->unsignedInteger('quantity')->nullable();
+
+            $table->decimal('price', 15, 2)->nullable();
+            
             $table->timestamps();
         });
     }

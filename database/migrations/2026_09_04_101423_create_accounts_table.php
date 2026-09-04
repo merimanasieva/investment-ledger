@@ -13,6 +13,13 @@ return new class extends Migration
     {
         Schema::create('accounts', function (Blueprint $table) {
             $table->id();
+
+            $table->foreignId('client_id')
+            ->unique()
+            ->constrained()
+            ->cascadeOnDelete();
+
+            $table->string('currency', 3);
             $table->timestamps();
         });
     }
