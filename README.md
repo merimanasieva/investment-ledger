@@ -1,32 +1,34 @@
 # Investment Ledger API
 
-A Laravel REST API for managing investment client accounts, cash movements, and instrument holdings.
+A Laravel REST API for managing investment clients, accounts, cash movements, and instrument holdings.
 
 ## Features
 
 * Create clients
-* Each client has exactly one account
+* Each client has one account
 * Each account has one currency
 * Deposit cash
 * Withdraw cash
 * Buy instruments
 * Sell instruments
 * Calculate current cash balance
-* Calculate current holdings
+* Calculate current instrument holdings
 * Validate business rules
 * Prevent insufficient withdrawals
 * Prevent purchases without sufficient cash
 * Prevent selling more instruments than currently held
 * Append-only movements
+* Database transactions
 * Seed example data
 * Automated feature tests
 
 ## Technologies
 
 * PHP 8.2+
-* Laravel
+* Laravel 12
 * SQLite
 * REST API
+* JSON
 * PHPUnit
 
 ---
@@ -47,7 +49,7 @@ git clone https://github.com/merimanasieva/investment-ledger.git
 cd investment-ledger
 ```
 
-## 3. Install PHP dependencies
+## 3. Install dependencies
 
 ```bash
 composer install
@@ -55,7 +57,7 @@ composer install
 
 ## 4. Create the environment file
 
-Windows:
+On Windows:
 
 ```bash
 copy .env.example .env
@@ -77,15 +79,15 @@ database/database.sqlite
 
 Make sure the `.env` file is configured to use SQLite.
 
-## 7. Run migrations and seed example data
+## 7. Run migrations and seed the database
 
 ```bash
 php artisan migrate:fresh --seed
 ```
 
-This creates the database structure and inserts example data.
+This creates the database tables and inserts example data.
 
-## 8. Start the Laravel development server
+## 8. Start the development server
 
 ```bash
 php artisan serve
@@ -103,36 +105,47 @@ http://127.0.0.1:8000
 
 The system communicates through a REST API using HTTP requests and JSON.
 
-The main communication methods are:
+The main HTTP methods used are:
 
-* `POST` — create a client or create a movement
-* `GET` — retrieve client information, balance, or movements
+* `GET` — retrieve information
+* `POST` — create clients and movements
+
+The following examples were tested using Thunder Client.
+
+---
 
 ## 1. Create Client
 
 ### Request
 
 ```http
-POST /api/clients
+POST http://127.0.0.1:8000/api/clients
 Content-Type: application/json
 ```
 
 ```json
 {
-    "name": "Ana",
-    "currency": "EUR"
+    "name": "Marko",
+    "currency": "USD"
 }
 ```
 
 ### Response
 
+In this test, the request was rejected because the client name already existed:
+
 ```json
 {
-    "id": 1,
-    "name": "Ana",
-    "currency": "EUR"
+    "message": "The name has already been taken.",
+    "errors": {
+        "name": [
+            "The name has already been taken."
+        ]
+    }
 }
 ```
+
+This demonstrates the validation rule that client names must be unique.
 
 ---
 
@@ -141,7 +154,7 @@ Content-Type: application/json
 ### Request
 
 ```http
-GET /api/clients/1
+GET http://127.0.0.1:8000/api/clients/1
 ```
 
 ### Response
@@ -150,7 +163,15 @@ GET /api/clients/1
 {
     "id": 1,
     "name": "Ana",
-    "currency": "EUR"
+    "created_at": "2026-09-04T11:30:41.000000Z",
+    "updated_at": "2026-09-04T11:30:41.000000Z",
+    "account": {
+        "id": 1,
+        "client_id": 1,
+        "currency": "EUR",
+        "created_at": "2026-09-04T11:30:41.000000Z",
+        "updated_at": "2026-09-04T11:30:41.000000Z"
+    }
 }
 ```
 
@@ -161,7 +182,7 @@ GET /api/clients/1
 ### Request
 
 ```http
-GET /api/clients/1/balance
+GET http://127.0.0.1:8000/api/clients/1/balance
 ```
 
 ### Response
@@ -177,176 +198,72 @@ GET /api/clients/1/balance
 }
 ```
 
-The balance is calculated from the client's movement history.
+The response shows the client's current cash balance and instrument holdings.
 
 ---
 
-## 4. Get Movements
+## 4. Create Movement — Sell
 
 ### Request
 
 ```http
-GET /api/clients/1/movements
+POST http://127.0.0.1:8000/api/clients/1/movements
+Content-Type: application/json
 ```
-
-### Response
-
-```json
-[
-    {
-        "type": "deposit",
-        "amount": "1000.00"
-    },
-    {
-        "type": "buy",
-        "instrument": "AAPL",
-        "quantity": 5,
-        "price": "100.00"
-    },
-    {
-        "type": "sell",
-        "instrument": "AAPL",
-        "quantity": 3,
-        "price": "120.00"
-    }
-]
-```
-
----
-
-# Creating Movements
-
-Movements are created using:
-
-```http
-POST /api/clients/{client}/movements
-```
-
-The `type` field determines what operation is performed.
-
-## Deposit
-
-### Request
-
-```json
-{
-    "type": "deposit",
-    "amount": 1000
-}
-```
-
-### Response
-
-```json
-{
-    "message": "Movement created successfully."
-}
-```
-
-A deposit increases the client's cash balance.
-
----
-
-## Withdrawal
-
-### Request
-
-```json
-{
-    "type": "withdrawal",
-    "amount": 300
-}
-```
-
-### Response
-
-```json
-{
-    "message": "Movement created successfully."
-}
-```
-
-A withdrawal decreases the client's cash balance.
-
-A withdrawal is rejected if there is not enough available cash.
-
----
-
-## Buy
-
-### Request
-
-```json
-{
-    "type": "buy",
-    "instrument": "AAPL",
-    "quantity": 5,
-    "price": 100
-}
-```
-
-The total purchase amount is calculated automatically:
-
-```text
-5 × 100 = 500 EUR
-```
-
-### Response
-
-```json
-{
-    "message": "Movement created successfully."
-}
-```
-
-The purchase decreases cash and increases the number of held instruments.
-
----
-
-## Sell
-
-### Request
 
 ```json
 {
     "type": "sell",
     "instrument": "AAPL",
-    "quantity": 3,
+    "quantity": 1,
     "price": 120
 }
-```
-
-The sale proceeds are calculated automatically:
-
-```text
-3 × 120 = 360 EUR
 ```
 
 ### Response
 
 ```json
 {
-    "message": "Movement created successfully."
+    "message": "Movement created successfully.",
+    "movement": {
+        "account_id": 1,
+        "type": "sell",
+        "amount": "120.00",
+        "instrument": "AAPL",
+        "quantity": 1,
+        "price": "120.00",
+        "updated_at": "2026-09-04T16:40:18.000000Z",
+        "created_at": "2026-09-04T16:40:18.000000Z",
+        "id": 6
+    },
+    "balance": {
+        "cash": "980.00",
+        "holdings": {
+            "AAPL": 1
+        }
+    }
 }
 ```
 
-The sale increases cash and decreases the number of held instruments.
-
-A sale is rejected if the client does not own enough units of the instrument.
+The sale increases the cash balance and decreases the number of held AAPL shares.
 
 ---
 
 # Business Rules
 
-## Cash
+## Cash Balance
 
-A client cannot withdraw or spend more cash than the current account balance.
+A client cannot withdraw or spend more cash than is currently available.
 
-The account can never have a negative cash balance.
+For example, a purchase is rejected when the account does not have enough cash.
+
+The account cannot have a negative cash balance.
 
 ## Holdings
 
-A client cannot sell more units of an instrument than currently held.
+A client cannot sell more units of an instrument than they currently own.
+
+For example, if the client owns 2 AAPL shares, selling 8 AAPL shares is rejected.
 
 ## Positive Values
 
@@ -354,35 +271,39 @@ Amounts and prices must be greater than zero.
 
 Quantities must be positive integers.
 
+## Unique Client Names
+
+Each client name must be unique.
+
+If an existing name is used, the API returns a validation error.
+
 ## Append-only Movements
 
-Movements cannot be updated or deleted through the API.
+Movements are not updated or deleted through the API.
 
-They represent an immutable transaction history.
+Each movement represents a transaction in the account history.
 
 ---
 
 # Balance Calculation
 
-The current cash balance is calculated from the movement history:
+The current cash balance is calculated from the movement history.
 
 ```text
-Deposits      → increase cash
-Withdrawals   → decrease cash
-Buys          → decrease cash
-Sells         → increase cash
+Deposit     → increases cash
+Withdrawal  → decreases cash
+Buy         → decreases cash
+Sell        → increases cash
 ```
 
-Holdings are calculated from buy and sell movements:
+Instrument holdings are also calculated from the movement history:
 
 ```text
-Buy           → increase quantity
-Sell          → decrease quantity
+Buy         → increases quantity
+Sell        → decreases quantity
 ```
 
-No separate mutable balance table is required.
-
-This keeps the current account state consistent with the movement history.
+This means the current account state is based on the recorded movements instead of manually changing a separate balance value.
 
 ---
 
@@ -390,42 +311,42 @@ This keeps the current account state consistent with the movement history.
 
 I chose a movement-based ledger instead of storing a balance that is directly changed after every operation.
 
-This makes every transaction traceable because the current balance can always be calculated from the movement history. Movements are append-only, so previous transactions are not changed or deleted.
+This makes every transaction traceable because the current balance can be calculated from the movement history. Movements are append-only, so previous transactions are not changed or deleted.
 
-I also placed the main business rules in a dedicated service. This keeps the controllers simpler and makes sure that deposits, withdrawals, buys, and sells follow the same validation rules.
+The main business rules are placed in a dedicated service so that deposits, withdrawals, buys, and sells follow the same validation logic while keeping the controllers simpler.
 
-Database transactions are used when creating movements so that if an operation fails, the account state is not partially changed.
+Database transactions are used when creating movements so that if an operation fails, the account is not left in a partially changed state.
 
-Each movement belongs to a specific account, and each account belongs to one client. This keeps client data separated and makes the relationships between clients, accounts, and movements clear.
+Each movement belongs to a specific account, and each account belongs to one client. This keeps the relationships between clients, accounts, and movements clear.
 
 ---
 
 # Testing
 
-Run all automated tests with:
+Run the automated tests with:
 
 ```bash
 php artisan test
 ```
 
-The tests cover:
+The tests cover important business rules and API behaviour, including:
 
 * Client creation
 * Deposits
 * Withdrawals
-* Insufficient withdrawals
+* Insufficient cash
 * Purchases
-* Insufficient cash for purchases
 * Sales
-* Excessive sales
+* Selling more instruments than owned
 * Invalid amounts
-* Account state remaining unchanged after rejected movements
+* Validation errors
+* Account state after rejected movements
 
 ---
 
 # Example Scenario
 
-Ana starts with:
+A client starts with:
 
 ```text
 Deposit: 1000 EUR
@@ -455,3 +376,5 @@ Final state:
 Cash: 860 EUR
 AAPL: 2 units
 ```
+
+This demonstrates how the account balance and holdings are derived from the recorded movements.
